@@ -223,6 +223,21 @@ static inline queue_entry_t *handle_to_qentry(odp_queue_t handle)
 	return get_qentry(queue_id);
 }
 
+static inline int schedule_min_prio(void)
+{
+	return 0;
+}
+
+static inline  int schedule_max_prio(void)
+{
+	return eventdev_gbl->num_prio - 1;
+}
+
+static inline  int schedule_default_prio(void)
+{
+	return schedule_max_prio() / 2;
+}
+
 #ifdef __cplusplus
 }
 #endif

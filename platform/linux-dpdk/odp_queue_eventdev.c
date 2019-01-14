@@ -56,16 +56,6 @@
 /* Number of priority levels  */
 #define NUM_PRIO 8
 
-// TODO: Are these needed?
-/*
-ODP_STATIC_ASSERT(ODP_SCHED_PRIO_LOWEST == (NUM_PRIO - 1),
-		  "lowest_prio_does_not_match_with_num_prios");
-
-ODP_STATIC_ASSERT((ODP_SCHED_PRIO_NORMAL > 0) &&
-		  (ODP_SCHED_PRIO_NORMAL < (NUM_PRIO - 1)),
-		  "normal_prio_is_not_between_highest_and_lowest");
-*/
-
 /* Thread local eventdev context */
 __thread eventdev_local_t eventdev_local;
 
@@ -253,7 +243,7 @@ static int setup_queues(uint8_t dev_id, uint8_t first_queue_id,
 {
 	eventdev_queue_t *queues = event_queues(sync);
 	uint8_t i, j;
-	uint8_t priority = ODP_SCHED_PRIO_NORMAL;
+	uint8_t priority = schedule_default_prio();
 
 	for (i = first_queue_id, j = 0; j < num_queues; i++, j++) {
 		struct rte_event_queue_conf queue_conf;
@@ -393,8 +383,9 @@ static int init_event_dev(void)
 	}
 	print_dev_info(&info);
 
-	eventdev_gbl->num_prio = NUM_PRIO;
-	if (!(info.event_dev_cap & RTE_EVENT_DEV_CAP_EVENT_QOS)) {
+	eventdev_gbl->num_prio = RTE_MIN(NUM_PRIO,
+					 info.max_event_queue_priority_levels);
+	if (!(info.event_dev_cap & RTE_EVENT_DEV_CAP_QUEUE_QOS)) {
 		ODP_PRINT("  Only one QoS level supported!\n");
 		eventdev_gbl->num_prio = 1;
 	}
@@ -1055,7 +1046,7 @@ static void queue_param_init(odp_queue_param_t *params)
 	params->enq_mode = ODP_QUEUE_OP_MT;
 	params->deq_mode = ODP_QUEUE_OP_MT;
 	params->nonblocking = ODP_BLOCKING;
-	params->sched.prio  = ODP_SCHED_PRIO_DEFAULT;
+	params->sched.prio  = schedule_default_prio();
 	params->sched.sync  = ODP_SCHED_SYNC_PARALLEL;
 	params->sched.group = ODP_SCHED_GROUP_ALL;
 }

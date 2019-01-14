@@ -24,7 +24,6 @@ extern const schedule_api_t schedule_eventdev_api;
 
 const schedule_fn_t *sched_fn;
 const schedule_api_t *sched_api;
-
 int _odp_schedule_configured;
 
 uint64_t odp_schedule_wait_time(uint64_t ns)
