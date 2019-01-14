@@ -574,6 +574,20 @@ static int schedule_multi(odp_queue_t *out_queue, uint64_t wait,
 	return schedule_loop(out_queue, wait, events, num);
 }
 
+// TODO: implement properly
+static int schedule_multi_wait(odp_queue_t *out_queue, odp_event_t events[],
+			       int num)
+{
+	return schedule_loop(out_queue, ODP_SCHED_WAIT, events, num);
+}
+
+// TODO: implement properly
+static int schedule_multi_no_wait(odp_queue_t *out_queue, odp_event_t events[],
+				  int num)
+{
+	return schedule_loop(out_queue, ODP_SCHED_NO_WAIT, events, num);
+}
+
 static void schedule_pause(void)
 {
 	if (unlink_port(eventdev_gbl->dev_id, eventdev_local.thr, NULL, 0) < 0)
@@ -933,6 +947,8 @@ const schedule_api_t schedule_eventdev_api = {
 	.schedule_config          = schedule_config,
 	.schedule                 = schedule,
 	.schedule_multi           = schedule_multi,
+	.schedule_multi_wait      = schedule_multi_wait,
+	.schedule_multi_no_wait   = schedule_multi_no_wait,
 	.schedule_pause           = schedule_pause,
 	.schedule_resume          = schedule_resume,
 	.schedule_release_atomic  = schedule_release_atomic,
