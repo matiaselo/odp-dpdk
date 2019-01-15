@@ -188,39 +188,24 @@ static inline uint8_t event_schedule_type(odp_schedule_sync_t sync)
 
 static inline uint32_t queue_to_index(odp_queue_t handle)
 {
-	return _odp_typeval(handle) - 1;
+	queue_entry_t *qentry = (queue_entry_t *)(uintptr_t)handle;
+
+	return qentry->s.index;
+}
+
+static inline queue_entry_t *qentry_from_index(uint32_t queue_id)
+{
+	return &eventdev_gbl->queue[queue_id];
 }
 
 static inline odp_queue_t queue_from_index(uint32_t queue_id)
 {
-	return _odp_cast_scalar(odp_queue_t, queue_id + 1);
+	return (odp_queue_t)qentry_from_index(queue_id);
 }
 
 static inline queue_entry_t *qentry_from_handle(odp_queue_t handle)
 {
 	return (queue_entry_t *)(uintptr_t)handle;
-}
-
-static inline queue_entry_t *qentry_from_int(odp_queue_t handle)
-{
-	return (queue_entry_t *)(uintptr_t)(handle);
-}
-
-static inline odp_queue_t qentry_to_int(queue_entry_t *qentry)
-{
-	return (odp_queue_t)(qentry);
-}
-
-static inline queue_entry_t *get_qentry(uint32_t queue_id)
-{
-	return &eventdev_gbl->queue[queue_id];
-}
-
-static inline queue_entry_t *handle_to_qentry(odp_queue_t handle)
-{
-	uint32_t queue_id = queue_to_index(handle);
-
-	return get_qentry(queue_id);
 }
 
 static inline int schedule_min_prio(void)

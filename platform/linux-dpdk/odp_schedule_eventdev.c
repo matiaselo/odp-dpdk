@@ -226,7 +226,7 @@ static int rx_adapter_add_queues(uint8_t rx_adapter_id, uint8_t port_id,
 	link_all_queues(eventdev_gbl->dev_id, &eventdev_gbl->config);
 
 	for (i = 0; i < num_pktin; i++) {
-		queue_entry_t *queue = handle_to_qentry(queues[i]);
+		queue_entry_t *queue = qentry_from_handle(queues[i]);
 		struct rte_event_eth_rx_adapter_queue_conf qconf;
 		struct rte_event ev;
 		int32_t rx_queue_id = pktin_idx[i];
@@ -323,7 +323,7 @@ static uint32_t schedule_max_ordered_locks(void)
 static int schedule_init_queue(uint32_t qi,
 			       const odp_schedule_param_t *sched_param)
 {
-	queue_entry_t *queue = get_qentry(qi);
+	queue_entry_t *queue = qentry_from_index(qi);
 	odp_thrmask_t mask;
 	uint8_t dev_id = eventdev_gbl->dev_id;
 	uint8_t queue_id = queue->s.event_queue.id;
@@ -347,7 +347,7 @@ static int schedule_init_queue(uint32_t qi,
 
 static void schedule_destroy_queue(uint32_t qi)
 {
-	queue_entry_t *queue = get_qentry(qi);
+	queue_entry_t *queue = qentry_from_index(qi);
 	odp_thrmask_t mask;
 	odp_schedule_group_t group = queue->s.param.sched.group;
 	uint8_t dev_id = eventdev_gbl->dev_id;
