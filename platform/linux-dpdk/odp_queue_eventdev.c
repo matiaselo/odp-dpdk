@@ -493,6 +493,12 @@ static int queue_init_global(void)
 
 	ODP_DBG("Starts...\n");
 
+	/* Fill in queue entry field offsets for inline functions */
+	memset(&_odp_queue_inline_offset, 0,
+	       sizeof(_odp_queue_inline_offset_t));
+	_odp_queue_inline_offset.context = offsetof(queue_entry_t,
+						    s.param.context);
+
 	shm = odp_shm_reserve("_odp_eventdev_gbl",
 			      sizeof(eventdev_global_t),
 			      ODP_CACHE_LINE_SIZE, 0);
