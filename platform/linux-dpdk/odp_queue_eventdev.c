@@ -39,6 +39,7 @@
 
 #include <string.h>
 #include <inttypes.h>
+#include <unistd.h>
 
 #define MIN_QUEUE_SIZE 8
 #define DEFAULT_QUEUE_SIZE (4 * 1024)
@@ -568,7 +569,7 @@ static int queue_term_global(void)
 	int i;
 
 	for (i = 0; i < ODP_CONFIG_QUEUES; i++) {
-		queue = &eventdev_gbl->queue[i];
+		queue = qentry_from_index(i);
 		LOCK(queue);
 		if (queue->s.status != QUEUE_STATUS_FREE) {
 			ODP_ERR("Not destroyed queue: %s\n", queue->s.name);
@@ -581,6 +582,10 @@ static int queue_term_global(void)
 		ret = -1;
 
 	rte_event_dev_stop(eventdev_gbl->dev_id);
+
+	/* Fix for DPDK 17.11 sync bug */
+	sleep(1);
+
 	if (rte_event_dev_close(eventdev_gbl->dev_id)) {
 		ODP_ERR("Failed to close event device\n");
 		ret = -1;
