@@ -18,6 +18,7 @@
 #include <odp/api/cpu.h>
 #include <odp_schedule_if.h>
 #include <odp/api/plat/thread_inlines.h>
+#include <odp_thread_internal.h>
 
 #include <rte_config.h>
 #include <rte_lcore.h>
@@ -83,6 +84,20 @@ int _odp_thread_term_global(void)
 		ODP_ERR("shm free failed for odp_thread_globals");
 
 	return ret;
+}
+
+int _odp_thread_cpu_ids(unsigned int *cpu_ids, int max_num)
+{
+	odp_thrmask_t *all = &thread_globals->all;
+	uint32_t num_cpus = 0;
+	int thr;
+
+	for (thr = 0; thr < max_num && num_cpus < thread_globals->num; thr++) {
+		if (odp_thrmask_isset(all, thr))
+			cpu_ids[num_cpus++] = thread_globals->thr[thr].cpu;
+	}
+
+	return num_cpus;
 }
 
 static int alloc_id(odp_thread_type_t type)
