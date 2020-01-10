@@ -80,6 +80,18 @@ typedef struct {
 	int rx_drop_en;
 } dpdk_opt_t;
 
+struct pkt_cache_t {
+	/* Array for storing extra RX packets */
+	struct rte_mbuf *pkt[DPDK_MIN_RX_BURST];
+	unsigned int idx;   /* Head of cache */
+	unsigned int count; /* Number of packets in cache */
+};
+
+typedef union ODP_ALIGNED_CACHE {
+	struct pkt_cache_t s;
+	uint8_t pad[ROUNDUP_CACHE_LINE(sizeof(struct pkt_cache_t))];
+} pkt_cache_t;
+
 /** Packet socket using dpdk mmaped rings for both Rx and Tx */
 typedef struct ODP_ALIGNED_CACHE {
 	uint16_t port_id;		  /**< DPDK port identifier */
@@ -92,6 +104,8 @@ typedef struct ODP_ALIGNED_CACHE {
 	/* Supported RTE_PTYPE_XXX flags in a mask */
 	uint32_t supported_ptypes;
 	char ifname[32];
+	/* Cache for storing extra RX packets */
+	pkt_cache_t rx_cache[PKTIO_MAX_QUEUES];
 	/** RX queue locks */
 	odp_ticketlock_t ODP_ALIGNED_CACHE rx_lock[PKTIO_MAX_QUEUES];
 	odp_ticketlock_t tx_lock[PKTIO_MAX_QUEUES];  /**< TX queue locks */
@@ -722,6 +736,7 @@ static int setup_pkt_dpdk(odp_pktio_t pktio ODP_UNUSED,
 static int close_pkt_dpdk(pktio_entry_t *pktio_entry)
 {
 	pkt_dpdk_t * const pkt_dpdk = pkt_priv(pktio_entry);
+	unsigned int i, j;
 
 	if (eventdev_gbl &&
 	    eventdev_gbl->rx_adapter.status != RX_ADAPTER_INIT)
@@ -731,6 +746,14 @@ static int close_pkt_dpdk(pktio_entry_t *pktio_entry)
 
 	if (pkt_dpdk->loopback)
 		dpdk_glb->loopback_in_use = 0;
+
+	/* Free cached packets */
+	for (i = 0; i < PKTIO_MAX_QUEUES; i++) {
+		unsigned int idx = pkt_dpdk->rx_cache[i].s.idx;
+
+		for (j = 0; j < pkt_dpdk->rx_cache[i].s.count; j++)
+			rte_pktmbuf_free(pkt_dpdk->rx_cache[i].s.pkt[idx++]);
+	}
 
 	return 0;
 }
@@ -1070,34 +1093,50 @@ static int recv_pkt_dpdk(pktio_entry_t *pktio_entry, int index,
 			 odp_packet_t pkt_table[], int num)
 {
 	pkt_dpdk_t * const pkt_dpdk = pkt_priv(pktio_entry);
+	pkt_cache_t *rx_cache = &pkt_dpdk->rx_cache[index];
 	uint16_t nb_rx;
-	uint8_t min = pkt_dpdk->min_rx_burst;
+	uint8_t min_burst = pkt_dpdk->min_rx_burst;
+	unsigned int cache_idx;
+	int i;
 
 	if (!pkt_dpdk->lockless_rx)
 		odp_ticketlock_lock(&pkt_dpdk->rx_lock[index]);
 
-	if (odp_likely(num >= min)) {
+	/**
+	 * ixgbe and i40e drivers have a minimum supported RX burst size
+	 * ('min_rx_burst'). If 'num' < 'min_rx_burst', 'min_rx_burst' is used
+	 * as rte_eth_rx_burst() argument and the possibly received extra
+	 * packets are cached for the next dpdk_recv_queue() call to use.
+	 *
+	 * Either use cached packets or receive new ones. Not both during the
+	 * same call. */
+	if (odp_unlikely(rx_cache->s.count > 0)) {
+		for (i = 0; i < num && rx_cache->s.count; i++) {
+			cache_idx = rx_cache->s.idx++;
+			pkt_table[i] = (odp_packet_t)rx_cache->s.pkt[cache_idx];
+			rx_cache->s.count--;
+		}
+		nb_rx = i;
+	} else if (odp_unlikely((unsigned int)num < min_burst)) {
+		struct rte_mbuf *new_mbufs[min_burst];
+
+		nb_rx = rte_eth_rx_burst(pkt_dpdk->port_id, (uint16_t)index,
+					 new_mbufs, min_burst);
+		rx_cache->s.idx = 0;
+		for (i = 0; i < nb_rx; i++) {
+			if (i < num) {
+				pkt_table[i] = (odp_packet_t)new_mbufs[i];
+			} else {
+				cache_idx = rx_cache->s.count;
+				rx_cache->s.pkt[cache_idx] = new_mbufs[i];
+				rx_cache->s.count++;
+			}
+		}
+		nb_rx = RTE_MIN(num, nb_rx);
+	} else {
 		nb_rx = rte_eth_rx_burst(pkt_dpdk->port_id, (uint16_t)index,
 					 (struct rte_mbuf **)pkt_table,
 					 (uint16_t)num);
-	} else {
-		odp_packet_t min_burst[min];
-		uint16_t i;
-
-		ODP_DBG("PMD requires >%d buffers burst.  Current %d, dropped "
-			"%d\n", min, num, min - num);
-		nb_rx = rte_eth_rx_burst(pkt_dpdk->port_id, (uint16_t)index,
-					 (struct rte_mbuf **)min_burst, min);
-
-		for (i = 0; i < nb_rx; i++) {
-			if (i < num)
-				pkt_table[i] = min_burst[i];
-			else
-				odp_packet_free(min_burst[i]);
-		}
-
-		pktio_entry->s.stats.in_discards += nb_rx - num;
-		nb_rx = RTE_MIN(num, nb_rx);
 	}
 
 	if (!pkt_dpdk->lockless_rx)
