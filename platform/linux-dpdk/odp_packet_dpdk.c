@@ -94,23 +94,21 @@ typedef union ODP_ALIGNED_CACHE {
 
 /** Packet socket using dpdk mmaped rings for both Rx and Tx */
 typedef struct ODP_ALIGNED_CACHE {
+	/* Packet input hash protocol */
+	odp_pktin_hash_proto_t hash;
+	/* Supported RTE_PTYPE_XXX flags in a mask */
+	uint32_t supported_ptypes;
 	uint16_t port_id;		  /**< DPDK port identifier */
 	uint16_t mtu;			  /**< maximum transmission unit */
 	uint8_t lockless_rx;		  /**< no locking for rx */
 	uint8_t lockless_tx;		  /**< no locking for tx */
 	uint8_t min_rx_burst;		  /**< minimum RX burst size */
 	uint8_t loopback;		  /**< Operate as loopback interface */
-	odp_pktin_hash_proto_t hash;	  /**< Packet input hash protocol */
-	/* Supported RTE_PTYPE_XXX flags in a mask */
-	uint32_t supported_ptypes;
-	char ifname[32];
 	/* Cache for storing extra RX packets */
 	pkt_cache_t rx_cache[PKTIO_MAX_QUEUES];
 	/** RX queue locks */
 	odp_ticketlock_t ODP_ALIGNED_CACHE rx_lock[PKTIO_MAX_QUEUES];
 	odp_ticketlock_t tx_lock[PKTIO_MAX_QUEUES];  /**< TX queue locks */
-	uint8_t vdev_sysc_promisc;	/**< promiscuous mode defined with
-					    system call */
 	dpdk_opt_t opt;
 	/* RX callback functions */
 #if RTE_VERSION < RTE_VERSION_NUM(18, 05, 0, 0)
@@ -118,6 +116,8 @@ typedef struct ODP_ALIGNED_CACHE {
 #else
 	const struct rte_eth_rxtx_callback *rx_callback[PKTIO_MAX_QUEUES];
 #endif
+	/* Promiscuous mode defined with system call */
+	uint8_t vdev_sysc_promisc;
 } pkt_dpdk_t;
 
 ODP_STATIC_ASSERT(PKTIO_PRIVATE_SIZE >= sizeof(pkt_dpdk_t),
