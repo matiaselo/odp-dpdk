@@ -1415,6 +1415,8 @@ int odp_crypto_session_create(const odp_crypto_session_param_t *param,
 #endif
 
 	if (cipher_is_aead(param->cipher_alg)) {
+		memset(&auth_xform, 0, sizeof(struct rte_crypto_sym_xform));
+
 		if (crypto_fill_aead_xform(&cipher_xform, &session->p) < 0) {
 			*status = ODP_CRYPTO_SES_CREATE_ERR_INV_CIPHER;
 			goto err;
