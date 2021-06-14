@@ -657,9 +657,8 @@ odp_pool_t odp_pool_create(const char *name, const odp_pool_param_t *params)
 			max_len = 0;
 			if (params->pkt.max_len != 0)
 				max_len = params->pkt.max_len;
-			if ((max_len + blk_size) / blk_size > params->pkt.num)
-				blk_size = (max_len + params->pkt.num) /
-					params->pkt.num;
+			if ((max_len + blk_size - 1) / blk_size > PKT_MAX_SEGS)
+				blk_size = (max_len + PKT_MAX_SEGS - 1) / PKT_MAX_SEGS;
 			blk_size = ROUNDUP_ALIGN(headroom + blk_size +
 						 tailroom, min_align);
 			/* Segment size minus headroom might be rounded down by
